@@ -1,4 +1,4 @@
-import sys, pathlib, torch, pandas as pd, numpy as np
+import sys, pathlib, torch, pandas as pd
 from PIL import Image
 from open_clip import create_model_from_pretrained
 import torch.nn as nn
@@ -31,43 +31,21 @@ def load_ckpt(variant, dev):
             return torch.load(path, map_location=dev)
     raise FileNotFoundError(f"Checkpoint for {variant} not found.")
 
-def extract_head(sd):
-    """Keep only the classifier head weight & bias and rename keys -> weight/bias."""
-    head_sd = {}
-    for w_key in ("head.weight", "classifier.weight", "weight"):
-        if w_key in sd:
-            head_sd["weight"] = sd[w_key]
-            break
-    for b_key in ("head.bias", "classifier.bias", "bias"):
-        if b_key in sd:
-            head_sd["bias"] = sd[b_key]
-            break
-    if len(head_sd) != 2:
-        raise ValueError("Head weights not found in checkpoint.")
-    return head_sd
-
-def rename_classifier(sd):
-    """Convert 'classifier.*' keys to 'head.*' for full-model checkpoints."""
-    out = {}
-    for k, v in sd.items():
-        if k.startswith("classifier."):
-            out["head" + k[len("classifier"):]] = v
-        else:
-            out[k] = v
-    return out
-
 # ---------------------------------------------------------------- wrapper
-class CLIPClassifier(nn.Module):
+class BioMedCLIPClassifier(nn.Module):
     """BiomedCLIP vision encoder + custom linear head."""
-    def __init__(self, base, n=5):
+    def __init__(self, base_model, num_classes, device):
         super().__init__()
-        self.visual = base.visual
+        self.visual = base_model.visual.to(device)
         with torch.no_grad():
-            dim = self.visual(torch.randn(1, 3, 224, 224)).shape[-1]
-        self.head = nn.Linear(dim, n)
+            dummy = torch.randn(1, 3, 224, 224).to(device)
+            feat = self.visual(dummy)
+            feat_dim = feat.shape[-1]
+        self.classifier = nn.Linear(feat_dim, num_classes)
 
     def forward(self, x):
-        return self.head(self.visual(x))
+        feat = self.visual(x)
+        return self.classifier(feat)
 
 # ---------------------------------------------------------------- main
 def main():
@@ -78,24 +56,24 @@ def main():
     variant, csv_path = sys.argv[1], sys.argv[2]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # 1) load BiomedCLIP backbone & tokenizer-compatible preprocess
+    # 1) Load BiomedCLIP backbone & preprocess
     base_clip, preprocess = create_model_from_pretrained(
         "hf-hub:microsoft/BiomedCLIP-PubMedBERT_256-vit_base_patch16_224"
     )
-    model = CLIPClassifier(base_clip).to(device)
 
-    # 2) load checkpoint
+    # 2) Initialize model
+    model = BioMedCLIPClassifier(base_clip, num_classes=5, device=device)
+
+    # 3) Load checkpoint
     ckpt = load_ckpt(variant, device)
-    sd = ckpt["model_state"] if "model_state" in ckpt else ckpt
-
     if variant in ("v1", "v2"):
-        model.head.load_state_dict(extract_head(sd), strict=True)
+        model.classifier.load_state_dict(ckpt["model_state"], strict=True)
     else:
-        model.load_state_dict(rename_classifier(sd), strict=False)
+        model.load_state_dict(ckpt["model_state"], strict=True)
 
-    model.eval()
+    model.to(device).eval()
 
-    # 3) run inference on images listed in CSV
+    # 4) Run inference on images listed in CSV
     df = pd.read_csv(csv_path)
     for i, row in df.iterrows():
         img = preprocess(Image.open(row["imgpath"]).convert("RGB")).unsqueeze(0).to(device)
