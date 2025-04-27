@@ -1,0 +1,11 @@
+class,imgpath
+Cardiomegaly,samples/Cardiomegaly_original.jpg
+Cardiomegaly,samples/Cardiomegaly_overlay.jpg
+Atelectasis,samples/Atelectasis_original.jpg
+Atelectasis,samples/Atelectasis_overlay.jpg
+Pleural Effusion,samples/Pleural_Effusion_original.jpg
+Pleural Effusion,samples/Pleural_Effusion_overlay.jpg
+Edema,samples/Edema_original.jpg
+Edema,samples/Edema_overlay.jpg
+Consolidation,samples/Consolidation_original.jpg
+Consolidation,samples/Consolidation_overlay.jpg
