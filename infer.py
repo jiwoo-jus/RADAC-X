@@ -5,13 +5,12 @@ import torch.nn as nn
 
 USAGE = "python infer.py <variant {v1|v2|v3|v4}> <csv_path>"
 
-LABELS = ["Atelectasis", "Cardiomegaly", "Consolidation",
-          "Edema", "Pleural Effusion"]
+LABELS = ["Atelectasis", "Cardiomegaly", "Consolidation", "Edema", "Pleural Effusion"]
 
 # absolute paths on the cluster
 ABS = {
     "v1": "/fs/scratch/PAS2985/group2/models/linear_classifier_original.pt",
-    "v2": "/fs/scratch/PAS2985/group2/models/linear_classifier_masked.pt",
+    "v2": "/fs/scratch/PAS2985/group2/models/checkpoint_epoch_label5.pt",
     "v3": "/fs/scratch/PAS2985/group2-w/folder_to_share/best_model.pt",
     "v4": "/fs/scratch/PAS2985/group2/models/vision_encoder_best.pt",
 }
